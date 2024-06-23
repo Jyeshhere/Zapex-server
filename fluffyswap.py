@@ -1,16 +1,8 @@
 from flask import Flask, jsonify, request
 import requests
-import logging
-import sys
 import time
 
 app = Flask(__name__)
-
-# Setup logging to stdout (Render console)
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-app.logger.addHandler(handler)
-app.logger.setLevel(logging.DEBUG)
 
 # Mock data storage
 recent_swaps = []
@@ -38,7 +30,6 @@ def fetch_usd_value(coin):
     if coin in coin_id_map:
         coin_id = coin_id_map[coin]
     else:
-        app.logger.error(f"CoinGecko ID not found for {coin}")
         return None
     
     url = f"{COINGECKO_BASE_URL}/simple/price"
@@ -47,7 +38,6 @@ def fetch_usd_value(coin):
         'vs_currencies': 'usd'
     }
     try:
-        app.logger.info(f"Fetching USD value for {coin} from CoinGecko...")
         response = requests.get(url, params=params)
         response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
@@ -55,16 +45,13 @@ def fetch_usd_value(coin):
         # Check if the coin ID exists in data and 'usd' value is present
         if coin_id in data and 'usd' in data[coin_id]:
             usd_value = data[coin_id]['usd']
-            app.logger.info(f"USD value fetched successfully for {coin}: {usd_value}")
             return usd_value
         else:
-            raise ValueError(f"USD value not found for {coin}")
+            return None
     
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f"Request to CoinGecko API failed: {e}")
+    except requests.exceptions.RequestException:
         return None
-    except ValueError as ve:
-        app.logger.error(f"Invalid response from CoinGecko API: {ve}")
+    except ValueError:
         return None
 
 # Function to calculate adjusted exchange rate with fee
@@ -82,16 +69,11 @@ def calculate_adjusted_rate(from_coin, to_coin):
 @app.route('/rates/<string:from_coin>', methods=['GET'])
 def get_exchange_rate(from_coin):
     to_coin = request.args.get('to_coin')
-    try:
-        adjusted_rate = calculate_adjusted_rate(from_coin, to_coin)
-        if adjusted_rate:
-            return jsonify({"result": adjusted_rate})
-        else:
-            app.logger.error(f"Exchange rate not found for {from_coin} to {to_coin}")
-            return jsonify({"error": "Exchange rate not found"}), 404
-    except Exception as e:
-        app.logger.error(f"Unexpected error occurred: {str(e)}")
-        return jsonify({"error": "Unexpected error occurred"}), 500
+    adjusted_rate = calculate_adjusted_rate(from_coin, to_coin)
+    if adjusted_rate is not None:
+        return jsonify({"result": adjusted_rate, "success": True})
+    else:
+        return jsonify({"result": 0, "success": False})
 
 # Endpoint to fetch recent swaps
 @app.route('/recent_swaps', methods=['GET'])
@@ -115,10 +97,8 @@ def create_swap():
             "time": int(time.time())
         }
         recent_swaps.append(new_swap)
-        app.logger.info(f"Created new swap: {new_swap}")
         return jsonify({"success": True, "result": {"id": swap_id}})
-    except Exception as e:
-        app.logger.error(f"Error creating swap: {str(e)}")
+    except Exception:
         return jsonify({"error": "Error creating swap"}), 500
 
 # Endpoint to check swap status
@@ -138,12 +118,9 @@ def check_swap_status():
                     swap['status'] = status  # Update status in data
                     swap['txid'] = "fake_txid_12345"  # Simulated transaction ID
                     swap['link'] = f"https://example.com/tx/{swap['txid']}"
-                app.logger.info(f"Swap status checked for ID {swap_id}: {swap}")
                 return jsonify({"success": True, "result": swap})
-        app.logger.error(f"Swap not found for ID {swap_id}")
         return jsonify({"error": "Swap not found"}), 404
-    except Exception as e:
-        app.logger.error(f"Error checking swap status: {str(e)}")
+    except Exception:
         return jsonify({"error": "Error checking swap status"}), 500
 
 # Endpoint to fetch available in_coins
