@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+ from flask import Flask, jsonify, request
 import requests
 import logging
 import sys
@@ -73,8 +73,8 @@ def calculate_adjusted_rate(from_coin, to_coin):
     out_usd = fetch_usd_value(to_coin)
     
     if in_usd and out_usd:
-        rate = out_usd / in_usd
-        fee_adjusted_rate = rate * 1.01  # Adding 1% fee
+        rate = out_usd / in_usd  # Invert the rate calculation
+        fee_adjusted_rate = rate * 0.99  # Deducting 1% fee
         return fee_adjusted_rate
     return None
 
