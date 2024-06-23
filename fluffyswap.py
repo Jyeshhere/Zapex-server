@@ -1,13 +1,15 @@
 from flask import Flask, jsonify, request
 import requests
 import logging
+import sys
 import time
 
 app = Flask(__name__)
 
-# Setup logging to stdout (Render terminal)
-gunicorn_error_logger = logging.getLogger('gunicorn.error')
-app.logger.handlers.extend(gunicorn_error_logger.handlers)
+# Setup logging to stdout (Render console)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+app.logger.addHandler(handler)
 app.logger.setLevel(logging.DEBUG)
 
 # Mock data storage
@@ -33,13 +35,16 @@ def fetch_usd_value(coin):
         'vs_currencies': 'usd'
     }
     try:
+        app.logger.info(f"Fetching USD value for {coin} from CoinGecko...")
         response = requests.get(url, params=params)
         response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
         
         # Check if the coin exists in data and 'usd' value is present
-        if coin in data and 'usd' in data[coin]:
-            return data[coin]['usd']
+        if coin.lower() in data and 'usd' in data[coin.lower()]:
+            usd_value = data[coin.lower()]['usd']
+            app.logger.info(f"USD value fetched successfully for {coin}: {usd_value}")
+            return usd_value
         else:
             raise ValueError(f"USD value not found for {coin}")
     
@@ -69,6 +74,7 @@ def get_exchange_rate(from_coin):
     if adjusted_rate:
         return jsonify({"result": adjusted_rate})
     else:
+        app.logger.error(f"Exchange rate not found for {from_coin} to {to_coin}")
         return jsonify({"error": "Exchange rate not found"}), 404
 
 # Endpoint to fetch recent swaps
@@ -92,6 +98,7 @@ def create_swap():
         "time": int(time.time())
     }
     recent_swaps.append(new_swap)
+    app.logger.info(f"Created new swap: {new_swap}")
     return jsonify({"success": True, "result": {"id": swap_id}})
 
 # Endpoint to check swap status
@@ -110,7 +117,9 @@ def check_swap_status():
                 swap['status'] = status  # Update status in data
                 swap['txid'] = "fake_txid_12345"  # Simulated transaction ID
                 swap['link'] = f"https://example.com/tx/{swap['txid']}"
+            app.logger.info(f"Swap status checked for ID {swap_id}: {swap}")
             return jsonify({"success": True, "result": swap})
+    app.logger.error(f"Swap not found for ID {swap_id}")
     return jsonify({"error": "Swap not found"}), 404
 
 # Endpoint to fetch available in_coins
