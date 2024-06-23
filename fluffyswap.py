@@ -36,10 +36,13 @@ def fetch_usd_value(coin):
         response = requests.get(url, params=params)
         response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
+        
+        # Check if the coin exists in data and 'usd' value is present
         if coin in data and 'usd' in data[coin]:
             return data[coin]['usd']
         else:
             raise ValueError(f"USD value not found for {coin}")
+    
     except requests.exceptions.RequestException as e:
         app.logger.error(f"Request to CoinGecko API failed: {e}")
         return None
