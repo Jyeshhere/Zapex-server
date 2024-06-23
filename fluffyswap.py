@@ -1,9 +1,17 @@
 from flask import Flask, jsonify, request
 import requests
+import logging
 import time
 
 app = Flask(__name__)
 
+# Setup logging to stdout (Render terminal)
+gunicorn_error_logger = logging.getLogger('gunicorn.error')
+app.logger.handlers.extend(gunicorn_error_logger.handlers)
+app.logger.setLevel(logging.DEBUG)
+
+# Mock data storage
+recent_swaps = []
 in_coins = {
     "BAN": {"fee": 0, "name": "Banano"},
     "XNO": {"fee": 0, "name": "Nano"}
@@ -24,12 +32,20 @@ def fetch_usd_value(coin):
         'ids': coin,
         'vs_currencies': 'usd'
     }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
         if coin.lower() in data and 'usd' in data[coin.lower()]:
             return data[coin.lower()]['usd']
-    return None
+        else:
+            raise ValueError(f"USD value not found for {coin}")
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Request to CoinGecko API failed: {e}")
+        return None
+    except ValueError as ve:
+        app.logger.error(f"Invalid response from CoinGecko API: {ve}")
+        return None
 
 # Function to calculate adjusted exchange rate with fee
 def calculate_adjusted_rate(from_coin, to_coin):
@@ -43,9 +59,9 @@ def calculate_adjusted_rate(from_coin, to_coin):
     return None
 
 # Endpoint to fetch exchange rate with fee adjustment
-@app.route('/rates/<string:from_coin>')
+@app.route('/rates/<string:from_coin>', methods=['GET'])
 def get_exchange_rate(from_coin):
-    to_coin = request.args.get('to')
+    to_coin = request.args.get('to_coin')
     adjusted_rate = calculate_adjusted_rate(from_coin, to_coin)
     if adjusted_rate:
         return jsonify({"result": adjusted_rate})
@@ -53,7 +69,7 @@ def get_exchange_rate(from_coin):
         return jsonify({"error": "Exchange rate not found"}), 404
 
 # Endpoint to fetch recent swaps
-@app.route('/recent_swaps')
+@app.route('/recent_swaps', methods=['GET'])
 def get_recent_swaps():
     return jsonify({"result": recent_swaps})
 
@@ -76,7 +92,7 @@ def create_swap():
     return jsonify({"success": True, "result": {"id": swap_id}})
 
 # Endpoint to check swap status
-@app.route('/swap_status')
+@app.route('/swap_status', methods=['GET'])
 def check_swap_status():
     swap_id = request.args.get('id')
     for swap in recent_swaps:
@@ -95,12 +111,12 @@ def check_swap_status():
     return jsonify({"error": "Swap not found"}), 404
 
 # Endpoint to fetch available in_coins
-@app.route('/in_coins')
+@app.route('/in_coins', methods=['GET'])
 def get_in_coins():
     return jsonify(in_coins)
 
 # Endpoint to fetch available out_coins
-@app.route('/out_coins')
+@app.route('/out_coins', methods=['GET'])
 def get_out_coins():
     return jsonify(out_coins)
 
