@@ -1,3 +1,4 @@
 flask
 nanohakase
 bananopie
+requests
