@@ -36,8 +36,8 @@ def fetch_usd_value(coin):
         response = requests.get(url, params=params)
         response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
-        if coin.lower() in data and 'usd' in data[coin.lower()]:
-            return data[coin.lower()]['usd']
+        if coin in data and 'usd' in data[coin]:
+            return data[coin]['usd']
         else:
             raise ValueError(f"USD value not found for {coin}")
     except requests.exceptions.RequestException as e:
