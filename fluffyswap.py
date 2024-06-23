@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request
 import requests
 import time
 
+COINGECKO_API_KEY = 'CG-Vro2bYPZhJtmf6fBnPGu1uNp'
+
 app = Flask(__name__)
 
 # Mock data storage
@@ -25,7 +27,7 @@ coin_id_map = {
 # CoinGecko API base URL
 COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3'
 
-# Function to fetch USD value from CoinGecko
+# Function to fetch USD value from CoinGecko using API key
 def fetch_usd_value(coin):
     if coin in coin_id_map:
         coin_id = coin_id_map[coin]
@@ -37,8 +39,12 @@ def fetch_usd_value(coin):
         'ids': coin_id,
         'vs_currencies': 'usd'
     }
+    headers = {
+        'Authorization': f'Bearer {COINGECKO_API_KEY}'
+    }
+    
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, headers=headers)
         response.raise_for_status()  # Raise an HTTPError for bad responses
         data = response.json()
         
