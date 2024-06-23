@@ -73,7 +73,7 @@ def calculate_adjusted_rate(from_coin, to_coin):
     out_usd = fetch_usd_value(to_coin)
     
     if in_usd and out_usd:
-        rate = out_usd / in_usd  # Invert the rate calculation
+        rate = in_usd / out_usd  
         fee_adjusted_rate = rate * 0.99  # Deducting 1% fee
         return fee_adjusted_rate
     return None
