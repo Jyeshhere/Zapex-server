@@ -1,5 +1,3 @@
 flask
-nanohakase
-bananopie
 requests
 gunicorn
