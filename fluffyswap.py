@@ -7,6 +7,7 @@ COINGECKO_API_KEY = 'CG-Vro2bYPZhJtmf6fBnPGu1uNp'
 app = Flask(__name__)
 
 # Mock data storage
+recent_swaps = []
 in_coins = {
     "BAN": {"fee": 0, "name": "Banano"},
     "XNO": {"fee": 0, "name": "Nano"}
@@ -54,11 +55,9 @@ def fetch_usd_value(coin):
         else:
             return None
     
-    except requests.exceptions.RequestException as e:
-        print(f"Request to CoinGecko API failed: {e}")
+    except requests.exceptions.RequestException:
         return None
-    except ValueError as e:
-        print(f"Error parsing response from CoinGecko API: {e}")
+    except ValueError:
         return None
 
 # Function to calculate adjusted exchange rate with fee
@@ -76,8 +75,8 @@ def calculate_adjusted_rate(from_coin, to_coin):
 @app.route('/rates/<string:from_coin>', methods=['GET'])
 def get_exchange_rate(from_coin):
     to_coin = request.args.get('to_coin')
-    if to_coin is None:
-        return jsonify({"error": "'to_coin' parameter is required"}), 400
+    if not to_coin:
+        return jsonify({"error": "Parameter 'to_coin' is required"}), 400
     
     adjusted_rate = calculate_adjusted_rate(from_coin, to_coin)
     if adjusted_rate is not None:
@@ -96,11 +95,7 @@ def create_swap():
     from_coin = request.args.get('from')
     to_coin = request.args.get('to')
     address = request.args.get('address')
-    
     try:
-        if not from_coin or not to_coin or not address:
-            return jsonify({"error": "Missing required parameters"}), 400
-        
         # Simulate creation of swap
         swap_id = int(time.time())  # Use timestamp as swap ID
         new_swap = {
@@ -112,7 +107,6 @@ def create_swap():
         }
         recent_swaps.append(new_swap)
         return jsonify({"success": True, "result": {"id": swap_id}})
-    
     except Exception as e:
         return jsonify({"error": f"Error creating swap: {str(e)}"}), 500
 
@@ -120,11 +114,7 @@ def create_swap():
 @app.route('/swap_status', methods=['GET'])
 def check_swap_status():
     swap_id = request.args.get('id')
-    
     try:
-        if not swap_id:
-            return jsonify({"error": "'id' parameter is required"}), 400
-        
         for swap in recent_swaps:
             if swap['id'] == int(swap_id):
                 # Simulate different statuses for demonstration
@@ -133,4 +123,24 @@ def check_swap_status():
                 elif time.time() - swap['time'] < 20:
                     status = "sending"
                 else:
-         
+                    status = "finished"
+                    swap['status'] = status  # Update status in data
+                    swap['txid'] = "fake_txid_12345"  # Simulated transaction ID
+                    swap['link'] = f"https://example.com/tx/{swap['txid']}"
+                return jsonify({"success": True, "result": swap})
+        return jsonify({"error": "Swap not found"}), 404
+    except Exception as e:
+        return jsonify({"error": f"Error checking swap status: {str(e)}"}), 500
+
+# Endpoint to fetch available in_coins
+@app.route('/in_coins', methods=['GET'])
+def get_in_coins():
+    return jsonify(in_coins)
+
+# Endpoint to fetch available out_coins
+@app.route('/out_coins', methods=['GET'])
+def get_out_coins():
+    return jsonify(out_coins)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80, debug=True)
